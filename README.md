@@ -1,6 +1,6 @@
 # Studocu Tools
 
-**Tiện ích trình duyệt giúp tải xuống tài liệu từ Studocu dưới dạng PDF**
+**Extension giúp tải xuống tài liệu từ Studocu dưới dạng PDF**
 
 ## Tính năng
 
@@ -9,7 +9,7 @@
 
 ## Cách cài đặt
 
-1. Tải về mã nguồn của extension dưới dạng tệp nén và giải nén chúng ra một thư mục riêng
+1. Tải về [mã nguồn của extension](https://github.com/nguynkhn/studotools/releases/latest) dưới dạng tệp nén và giải nén chúng ra một thư mục riêng
 2. (Đối với các trình duyệt như Chrome, Cốc Cốc, Brave, ...)\
     Mở Settings > Extensions > Manage Extensions (hoặc mở `chrome://extensions/` trong thanh tìm kiếm)
 3. Bật **Developer mode** (góc trên bên phải)
