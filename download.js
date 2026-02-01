@@ -1,5 +1,7 @@
+// TODO: cache and css stuff
 async function fetchDocument() {
-    const { documentAccess, pageDataList } = JSON.parse(__NEXT_DATA__.innerText).props.pageProps;
+    const nextData = JSON.parse(__NEXT_DATA__.innerText);
+    const { documentAccess, pageDataList } = nextData.props.pageProps;
     const { url, objectKey, signedQueryParams } = documentAccess;
     const params = signedQueryParams.global;
 
@@ -14,29 +16,33 @@ async function fetchDocument() {
 
     updateProgress(`Loading pages: 0/${pageCount}`);
 
-    await Promise.all(pageDataList.map(async pageData => {
-        let pageHtml = pageData.pageHtml;
+    for (const pageData of pageDataList) {
+        const { pageNumber, pageHtmlWrapper } = pageData;
+        let { pageHtml } = pageData;
 
         if (!pageHtml) {
-            const pageUrl = `${url}${objectKey}${pageData.pageNumber}.page${params}`;
+            const pageUrl = `${url}${objectKey}${pageNumber}.page${params}`;
             const pageResponse = await fetch(pageUrl);
             pageHtml = await pageResponse.text();
 
-            const backgroundFile = `bg${pageData.pageNumber.toString(16)}.png`;
+            const backgroundFile = `bg${pageNumber.toString(16)}.png`;
             const backgroundUrl = `${url}${backgroundFile}${params}`
             pageHtml = pageHtml.replace(backgroundFile, backgroundUrl);
         }
 
-        pageContainer.innerHTML += `${pageData.pageHtmlWrapper}${pageHtml}</div>`;
+        pageHtml = `${pageHtmlWrapper}${pageHtml}</div>`;
+        pageContainer.insertAdjacentHTML('beforeend', pageHtml);
+
         updateProgress(`Loading pages: ${++pageLoaded}/${pageCount}`);
-    }));
+    }
+
+    updateProgress('Downloading document...');
 
     const styleElement = document.createElement('style');
     styleElement.textContent = `
 body > *:not(.p2hv) { 
     display: none !important; 
 }
-
 @media print {
     @page {
         margin: 0;
@@ -66,36 +72,51 @@ body > *:not(.p2hv) {
 
     document.body.append(viewerElement);
 
-    setTimeout(() => {
-        window.print();
-        styleElement.remove();
-        viewerElement.remove();
-    }, 1000);
+    for (const pageElement of pageContainer.children) {
+        const imageElement = pageElement.querySelector('img.bi');
+        if (!imageElement) {
+            continue;
+        }
+
+        await new Promise(resolve => {
+            if (imageElement.complete && imageElement.naturalWidth > 0) {
+                resolve();
+                return;
+            }
+
+            imageElement.addEventListener('load', resolve, { once: true });
+            imageElement.addEventListener('error', resolve, { once: true });
+        });
+    }
+
+    await document.fonts?.ready;
+    await new Promise(r => requestAnimationFrame(r));
+
+    window.print();
+    styleElement.remove();
+    viewerElement.remove();
 }
 
 function createDownloadButton() {
     const topbar = document.querySelector('div[class^="TopbarActions_secondary-actions-wrapper"]');
-    if (!topbar) {
+    if (topbar?.querySelector('.pdf-download-btn')) {
         return;
     }
 
-    if (topbar.querySelector('.pdf-download-btn')) {
+    const originalButton = topbar.querySelector('button[aria-label^="Download"]');
+    if (!originalButton) {
         return;
     }
 
-    const downloadButtons = topbar?.firstChild?.cloneNode(true);
-    if (!downloadButtons) {
-        return;
-    }
+    const button = originalButton.cloneNode(true);
+    button.classList.add('pdf-download-btn');
+    button.textContent = 'Download as PDF';
 
-    downloadButtons.querySelectorAll('button[aria-label^="Download"]')
-        .forEach(downloadButton => {
-            downloadButton.classList.add('pdf-download-btn');
-            downloadButton.innerText = 'Download as PDF';
-            downloadButton.addEventListener('click', fetchDocument);
-        });
-    topbar.prepend(downloadButtons);
+    button.addEventListener('click', fetchDocument);
+
+    topbar.prepend(button);
 }
+
 window.addEventListener('load', () => {
     const observer = new MutationObserver(createDownloadButton);
     observer.observe(document.body, { childList: true, subtree: true });
